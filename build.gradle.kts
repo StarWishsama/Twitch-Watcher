@@ -8,10 +8,14 @@
  * https://github.com/StarWishsama/Twitch-Watcher/blob/master/LICENSE
  */
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
     java
     kotlin("jvm") version Versions.kotlinVersion
     kotlin("plugin.serialization") version Versions.kotlinVersion
+    id("com.github.johnrengelman.shadow") version "7.0.0"
+    id("com.github.gmazzo.buildconfig") version "3.0.0"
 }
 
 group = "io.github.starwishsama.twitchwatcher"
@@ -25,10 +29,20 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("com.charleskorn.kaml:kaml:${Versions.kamlVersion}")
     // Selenium WebDriver @ https://www.selenium.dev/
-    implementation("org.seleniumhq.selenium:selenium-java:{${Versions.seleniumVersion}}")
+    implementation("org.seleniumhq.selenium:selenium-java:${Versions.seleniumVersion}")
+
+    // Jline a Java library for handling console input @ https://github.com/jline/jline3
+    implementation("org.jline:jline:${Versions.jlineVersion}")
+
+    // Jansi needed by JLine
+    implementation("org.fusesource.jansi:jansi:${Versions.jansiVersion}")
 }
 
 java {
     targetCompatibility = JavaVersion.VERSION_11
     sourceCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType<ShadowJar> {
+
 }

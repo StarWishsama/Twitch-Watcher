@@ -8,11 +8,9 @@
  * https://github.com/StarWishsama/Twitch-Watcher/blob/master/LICENSE
  */
 
-package io.github.starwishsama.twitchwatcher
+package io.github.starwishsama.twitchwatcher.objects
 
-object TwitchWatcher {
-    @JvmStatic
-    fun main(args: Array<String>) {
-        
-    }
-}
+data class LiveInfo(
+    val streamers: List<String>,
+    val retrieveTime: Long
+)

@@ -32,5 +32,14 @@ data class WatcherConfig(
     val timeUnit: TimeUnit = TimeUnit.MINUTES,
     val liveScreenshot: Boolean = false,
     val proxy: String = "ip:port",
-    val proxyType: Proxy.Type = Proxy.Type.HTTP
+    val proxyType: Proxy.Type = Proxy.Type.HTTP,
+    val startArgs: List<String> = listOf(
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
+    )
 )
