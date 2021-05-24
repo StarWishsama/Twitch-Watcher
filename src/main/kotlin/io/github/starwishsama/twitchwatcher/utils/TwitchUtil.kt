@@ -18,8 +18,11 @@ import org.openqa.selenium.By
 import org.openqa.selenium.Cookie
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.interactions.Actions
+import org.openqa.selenium.support.ui.WebDriverWait
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 
-object NetUtil {
+object TwitchUtil {
     private val cookiePolicyQuery = "button[data-a-target=\"consent-banner-accept\"]"
     private val matureContentQuery = "button[data-a-target=\"player-overlay-mature-accept\"]"
     private val sidebarQuery = "*[data-test-selector=\"user-menu__toggle\"]"
@@ -70,6 +73,11 @@ object NetUtil {
      * @return streamers, empty when no matched streamer.
      */
     fun checkLiveStreamers(driver: WebDriver): List<String> {
+        if (!checkLoginStatus(driver.manage().cookies)) {
+            logger.warning("Twitch login status is malformed, cancel retrieve streamers.")
+            return emptyList()
+        }
+
         logger.info("Emulating scrolling...")
 
         val streamers = mutableListOf<String>()
@@ -89,8 +97,26 @@ object NetUtil {
             }
         }
 
+        logger.verbose("Streamers list: $streamers")
+
         return streamers
     }
+
+    fun clickButton(driver: WebDriver, query: String) {
+        val result = driver.findElements(By.cssSelector(query))
+
+        try {
+            val first = result[0]
+
+            if (first.tagName == "tag" && first.accessibleName == "button") {
+                first.click()
+                TimeUnit.SECONDS.sleep(1)
+            }
+        } catch (ignored: Exception) {
+            logger.verbose("Clicked button failed.")
+        }
+    }
+
 
     private fun webPageSelector(driver: WebDriver, query: String): Elements {
         val jsoup = Jsoup.parse(driver.pageSource)
