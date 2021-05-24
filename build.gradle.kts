@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-5-23
+ * Class created by StarWishsama on 2021-5-24
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  *
@@ -36,6 +36,8 @@ dependencies {
 
     // Jansi needed by JLine
     implementation("org.fusesource.jansi:jansi:${Versions.jansiVersion}")
+
+    implementation("org.jsoup:jsoup:1.13.1")
 }
 
 java {

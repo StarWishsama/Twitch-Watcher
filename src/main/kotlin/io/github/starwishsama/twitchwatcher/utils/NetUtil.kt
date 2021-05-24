@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-5-23
+ * Class created by StarWishsama on 2021-5-24
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  *
@@ -12,9 +12,10 @@ package io.github.starwishsama.twitchwatcher.utils
 
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.config
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.logger
+import org.jsoup.Jsoup
+import org.jsoup.select.Elements
 import org.openqa.selenium.By
 import org.openqa.selenium.Cookie
-import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.interactions.Actions
 
@@ -28,7 +29,7 @@ object NetUtil {
     private val streamSettingsQuery = "[data-a-target=\"player-settings-button\"]"
     private val streamQualitySettingQuery = "[data-a-target=\"player-settings-menu-item-quality\"]"
     private val streamQualityQuery = "input[data-a-target=\"tw-radio\"]"
-    
+
     fun parseCookieData(): List<Cookie> {
         val defaultCookie = mutableListOf(
             Cookie("domain", ".twitch.tv"),
@@ -62,8 +63,16 @@ object NetUtil {
         return false
     }
 
+    /**
+     * Checks current streamers in live status and with Twitch Drop enabled.
+     *
+     * @param driver current WebDriver
+     * @return streamers, empty when no matched streamer.
+     */
     fun checkLiveStreamers(driver: WebDriver): List<String> {
         logger.info("Emulating scrolling...")
+
+        val streamers = mutableListOf<String>()
 
         val e = driver.findElement(By.className("scrollable-trigger__wrapper"))
 
@@ -72,13 +81,20 @@ object NetUtil {
             actions.moveToElement(e)
             actions.perform()
 
-           config.timeUnit.sleep(config.scrollDelay)
+            config.timeUnit.sleep(config.scrollDelay)
+
+            val ele = webPageSelector(driver, channelsQuery)
+            for (element in ele) {
+                streamers.add(element.attr("href").split("/")[1])
+            }
         }
 
-
+        return streamers
     }
 
-    fun queryOnWebsite(driver: WebDriver, query: String): String {
-        driver.findElement(By.tagName(channelsQuery))
+    private fun webPageSelector(driver: WebDriver, query: String): Elements {
+        val jsoup = Jsoup.parse(driver.pageSource)
+
+        return jsoup.select(query)
     }
 }
