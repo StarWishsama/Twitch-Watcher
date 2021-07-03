@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-6-30
+ * Class created by StarWishsama on 2021-7-3
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -11,19 +11,28 @@
 
 package io.github.starwishsama.twitchwatcher.utils
 
-import io.github.starwishsama.twitchwatcher.TwitchWatcher
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.config
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.logger
 import io.github.starwishsama.twitchwatcher.runner.DetectorStatus
-import io.github.starwishsama.twitchwatcher.runner.TwitchLiveDetector
+import io.github.starwishsama.twitchwatcher.runner.TwitchLiveWatcher
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 import org.openqa.selenium.By
 import org.openqa.selenium.Cookie
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.interactions.Actions
+import org.openqa.selenium.support.ui.WebDriverWait
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
+/**
+ * [TwitchUtil]
+ *
+ * Used to assist with processing Twitch watch.
+ */
 object TwitchUtil {
 
     // A series of element name in Twitch Streaming page.
@@ -38,7 +47,7 @@ object TwitchUtil {
     private const val streamQualityQuery = "input[data-a-target=\"tw-radio\"]"
 
     /**
-     * Parse config cookie to request cookie
+     * Parse config cookie to cookie for request
      *
      * @return default Cookies
      */
@@ -64,6 +73,7 @@ object TwitchUtil {
     /**
      * Check Twitch login status
      *
+     * @param cookies cookies
      * @return login status
      */
     fun checkLoginStatus(cookies: Set<Cookie>): Boolean {
@@ -84,6 +94,7 @@ object TwitchUtil {
      * Checks current streamers in live status and with Twitch Drop enabled.
      *
      * @param driver current WebDriver
+     * @param url request streamer url
      *
      * @return streamers, empty when no matched streamer.
      */
@@ -119,23 +130,61 @@ object TwitchUtil {
         return streamers
     }
 
-    fun viewStreamingPage(watcher: TwitchLiveDetector, url: String) {
-        logger.info("Now watching streamer: $url")
-
+    /**
+     * [viewStreamingPage]
+     *
+     * Open random streamer's live room in watcher.
+     *
+     * @param watcher [TwitchLiveWatcher]
+     * @param url live room URL
+     */
+    fun viewStreamingPage(watcher: TwitchLiveWatcher, url: String) {
         val driver = watcher.driver
 
         driver.get(url)
 
-        // Click on accept button
+        logger.info("\uD83D\uDD17 Now watching: $url")
+
+        val watchDuration = Random.nextLong(config.minWatchTime, config.maxWatchTime)
+
+        // Click on cookie policy accept button
         clickButton(driver, cookiePolicyQuery)
+        // Click on cookie mature content accept button
         clickButton(driver, matureContentQuery)
 
         if (watcher.status == DetectorStatus.RUNNING) {
             logger.info("Setting the resolution to lowest...")
 
             clickButton(driver, streamPauseQuery)
+            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamPauseQuery)))
+
             clickButton(driver, streamSettingsQuery)
+            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamSettingsQuery)))
+
+            clickButton(driver, streamQualityQuery)
+            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamQualityQuery)))
+
+            val resolutions = doSelector(driver, streamQualitySettingQuery)
+            val lowestResolution = resolutions.last().attributes()["id"]
+
+            clickButton(driver, lowestResolution, By.tagName(lowestResolution))
+
+            HtmlUtil.getWebElement(driver, By.cssSelector(streamPauseQuery)).sendKeys("m")
+
+            watcher.status = DetectorStatus.READY
         }
+
+        clickButton(driver, sidebarQuery)
+        HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(sidebarQuery)))
+        val status = doSelector(driver, userStatusQuery) //status jQuery
+        clickButton(driver, sidebarQuery); //Close sidebar
+
+        logger.info("💡 Account status: ${if (status[0] != null) status[0].children()[0].data() else "Unknown"}")
+        logger.info("🕒 Time: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+        logger.info("💤 Watching stream for " + watchDuration / 60000 + "minute(s)");
+
+        val wait = WebDriverWait(driver, Duration.ofSeconds(5), Duration.ofMinutes(watchDuration))
+        wait.withTimeout(Duration.ofMinutes(watchDuration))
     }
 
     /**
@@ -143,16 +192,17 @@ object TwitchUtil {
      *
      * @param driver WebDriver
      * @param query query
+     * @param by search Element way
      */
-    fun clickButton(driver: WebDriver, query: String) {
-        val result = driver.findElements(By.cssSelector(query))
+    fun clickButton(driver: WebDriver, query: String, by: By = By.cssSelector(query)) {
+        val result = driver.findElements(by)
 
         try {
             val first = result[0]
 
             if (first.tagName == "tag" && first.accessibleName == "button") {
                 first.click()
-                TimeUnit.SECONDS.sleep(1)
+                TimeUnit.MILLISECONDS.sleep(200)
             }
         } catch (ignored: Exception) {
             logger.verbose("A Error occurred when clicking button.")
