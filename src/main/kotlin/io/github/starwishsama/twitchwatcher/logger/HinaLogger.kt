@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-5-25
+ * Class created by StarWishsama on 2021-7-7
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -13,8 +13,11 @@ package io.github.starwishsama.twitchwatcher.logger
 
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants
 import org.fusesource.jansi.Ansi
+import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+
+private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class HinaLogger(
@@ -24,7 +27,8 @@ class HinaLogger(
     },
     var debugMode: Boolean = false,
     var outputBeautyTrace: Boolean = false,
-    val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yy/M/dd HH:mm:ss")
+    val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yy/M/dd HH:mm:ss"),
+    val loggerAppender: LoggerAppender
 ) {
 
     // 时间 日志等级/日志等级缩写 logger名字 -> logger前缀 消息
@@ -59,12 +63,10 @@ class HinaLogger(
             }
         }
 
-        logAction(
-            "${level.color}${dateTimeFormatter.format(LocalDateTime.now())} ${level.internalName}/${level.simpleName}" +
-                    "${if (level != HinaLogLevel.Verbose && level != HinaLogLevel.Info && level != HinaLogLevel.Warn) "($executorInfo)" else ""} " +
-                    "$loggerName -> ${if (prefix.isEmpty()) "" else "$prefix "}$message"
-                    + if (trace.isNotEmpty()) "\n\n$trace\n" else "" + "${AnsiUtil.Color.RESET}"
-        )
+        val content = "${level.color}${dateTimeFormatter.format(LocalDateTime.now())} ${level.internalName}/${level.simpleName}" + "${if (level != HinaLogLevel.Verbose && level != HinaLogLevel.Info && level != HinaLogLevel.Warn) "($executorInfo)" else ""} " + "$loggerName -> ${if (prefix.isEmpty()) "" else "$prefix "}$message"+ if (trace.isNotEmpty()) "\n\n$trace\n" else "" + "${AnsiUtil.Color.RESET}"
+
+        logAction(content)
+        loggerAppender.appendLog(content)
     }
 
     fun info(content: String?) {
@@ -192,6 +194,10 @@ class HinaLogger(
         }
     }
 
+    fun close() {
+        loggerAppender.close()
+    }
+
     sealed class HinaLogLevel(val internalName: String, val simpleName: String, val color: AnsiUtil.Color) {
         object Verbose : HinaLogLevel("VERBOSE", "V", AnsiUtil.Color.GRAY)
         object Info : HinaLogLevel("INFO", "I", AnsiUtil.Color.RESET)
@@ -227,5 +233,23 @@ object AnsiUtil {
         DARK_RED(Ansi.ansi().fgRgb(170, 0, 0).toString());
 
         override fun toString(): String = format
+    }
+}
+
+/**
+ * 获取当前 Log 文件
+ *
+ * @return log 文件位置
+ */
+fun getLogLocation(customPrefix: String = "log"): File {
+    val initTime = LocalDateTime.now()
+    val parent = File("./logs")
+
+    if (!parent.exists()) parent.mkdirs()
+
+    return File(parent, "$customPrefix-${dateFormatter.format(initTime)}.log").also {
+        if (!it.exists()) {
+            it.createNewFile()
+        }
     }
 }
