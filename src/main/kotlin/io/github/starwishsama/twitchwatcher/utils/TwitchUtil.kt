@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-7-3
+ * Class created by StarWishsama on 2021-7-8
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -11,6 +11,7 @@
 
 package io.github.starwishsama.twitchwatcher.utils
 
+import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.browserInstance
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.config
 import io.github.starwishsama.twitchwatcher.TwitchWatcherConstants.logger
 import io.github.starwishsama.twitchwatcher.runner.DetectorStatus
@@ -51,7 +52,7 @@ object TwitchUtil {
      *
      * @return default Cookies
      */
-    fun generateCookie(): List<Cookie> {
+    fun defaultCookie(): List<Cookie> {
         val defaultCookie = mutableListOf(
             Cookie("domain", ".twitch.tv"),
             Cookie("hostOnly", "false"),
@@ -65,7 +66,7 @@ object TwitchUtil {
             Cookie("id", "1")
         )
 
-        defaultCookie.add(Cookie("auth-token", config.token))
+        defaultCookie.add(Cookie("value", config.token))
 
         return defaultCookie
     }
@@ -77,6 +78,8 @@ object TwitchUtil {
      * @return login status
      */
     fun checkLoginStatus(cookies: Set<Cookie>): Boolean {
+        logger.verbose("Cookies: $cookies")
+
         cookies.forEach {
             if (it.name == "twilight-user") {
                 logger.info("✅ Login twitch successfully!")
@@ -84,7 +87,7 @@ object TwitchUtil {
             }
         }
 
-        logger.warning("\uD83D\uDED1 Login failed, invalid token!")
+        logger.warning("\uD83D\uDED1 Login failed, invalid token (${config.token})!")
         logger.warning("Please check whether you have filled a valid twitch token.")
 
         return false
@@ -99,12 +102,12 @@ object TwitchUtil {
      * @return streamers, empty when no matched streamer.
      */
     fun checkLiveStreamers(driver: WebDriver, url: String): List<String> {
+        browserInstance.openPage(url)
+
         if (!checkLoginStatus(driver.manage().cookies)) {
             logger.warning("Twitch login status is malformed, cancel retrieve streamers.")
             return emptyList()
         }
-
-        driver.get(url)
 
         logger.info("Emulating scrolling...")
 
@@ -139,6 +142,12 @@ object TwitchUtil {
      * @param url live room URL
      */
     fun viewStreamingPage(watcher: TwitchLiveWatcher, url: String) {
+        if (url.isEmpty()) {
+            logger.info("The request url cannot be empty!")
+            watcher.driver.close()
+            return
+        }
+
         val driver = watcher.driver
 
         driver.get(url)
