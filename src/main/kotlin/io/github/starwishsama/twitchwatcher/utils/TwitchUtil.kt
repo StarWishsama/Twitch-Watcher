@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-7-8
+ * Class created by StarWishsama on 2021-7-9
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -24,8 +24,12 @@ import org.openqa.selenium.WebDriver
 import org.openqa.selenium.interactions.Actions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalUnit
+import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
@@ -52,23 +56,25 @@ object TwitchUtil {
      *
      * @return default Cookies
      */
-    fun defaultCookie(): List<Cookie> {
-        val defaultCookie = mutableListOf(
-            Cookie("domain", ".twitch.tv"),
-            Cookie("hostOnly", "false"),
-            Cookie("httpOnly", "false"),
-            Cookie("name", "auth-token"),
-            Cookie("path", "/"),
-            Cookie("sameSite", "no_restriction"),
-            Cookie("secure", "true"),
-            Cookie("session", "false"),
-            Cookie("storeId", "0"),
-            Cookie("id", "1")
+    fun defaultCookie(): Cookie {
+
+        /**val defaultCookie = mutableListOf(
+        Cookie("hostOnly", "false"),
+        Cookie("session", "false"),
+        Cookie("storeId", "0"),
+        Cookie("id", "1")
+        )*/
+
+        return Cookie(
+            "auth-token",
+            config.token,
+            ".twitch.tv",
+            "/",
+            Date.from(Instant.now().plus(1, ChronoUnit.MONTHS)),
+            true,
+            false,
+            "no_restriction"
         )
-
-        defaultCookie.add(Cookie("value", config.token))
-
-        return defaultCookie
     }
 
     /**
@@ -80,11 +86,19 @@ object TwitchUtil {
     fun checkLoginStatus(cookies: Set<Cookie>): Boolean {
         logger.verbose("Cookies: $cookies")
 
-        cookies.forEach {
-            if (it.name == "twilight-user") {
-                logger.info("✅ Login twitch successfully!")
-                return true;
+        val twilight = cookies.find { it.name == "twilight-user" }
+
+        val userName = cookies.find { it.name == "login" }
+
+        if (twilight != null) {
+            val display: String = if (userName != null) {
+                userName.value
+            } else {
+                "Unknown Name"
             }
+
+            logger.info("✅ Login twitch successfully! Logon as $display")
+            return true
         }
 
         logger.warning("\uD83D\uDED1 Login failed, invalid token (${config.token})!")
