@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-7-9
+ * Class created by StarWishsama on 2021-8-5
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -70,10 +70,9 @@ object TwitchUtil {
             config.token,
             ".twitch.tv",
             "/",
-            Date.from(Instant.now().plus(1, ChronoUnit.MONTHS)),
+            Date.from(Instant.now().plus(30, ChronoUnit.DAYS)),
             true,
-            false,
-            "no_restriction"
+            false
         )
     }
 
@@ -117,6 +116,8 @@ object TwitchUtil {
      */
     fun checkLiveStreamers(driver: WebDriver, url: String): List<String> {
         browserInstance.openPage(url)
+
+        Thread.sleep(10_000)
 
         if (!checkLoginStatus(driver.manage().cookies)) {
             logger.warning("Twitch login status is malformed, cancel retrieve streamers.")
@@ -164,7 +165,7 @@ object TwitchUtil {
 
         val driver = watcher.driver
 
-        driver.get(url)
+        driver.get("https://www.twitch.tv/$url")
 
         logger.info("\uD83D\uDD17 Now watching: $url")
 
@@ -202,7 +203,7 @@ object TwitchUtil {
         val status = doSelector(driver, userStatusQuery) //status jQuery
         clickButton(driver, sidebarQuery); //Close sidebar
 
-        logger.info("💡 Account status: ${if (status[0] != null) status[0].children()[0].data() else "Unknown"}")
+        logger.info("💡 Account status: ${if (status.isNotEmpty() && status[0] != null) status[0].children()[0].data() else "Unknown"}")
         logger.info("🕒 Time: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
         logger.info("💤 Watching stream for " + watchDuration / 60000 + "minute(s)");
 
@@ -220,6 +221,10 @@ object TwitchUtil {
     fun clickButton(driver: WebDriver, query: String, by: By = By.cssSelector(query)) {
         val result = driver.findElements(by)
 
+        if (result.isEmpty()) {
+            return
+        }
+
         try {
             val first = result[0]
 
@@ -227,8 +232,8 @@ object TwitchUtil {
                 first.click()
                 TimeUnit.MILLISECONDS.sleep(200)
             }
-        } catch (ignored: Exception) {
-            logger.verbose("A Error occurred when clicking button.")
+        } catch (e: Exception) {
+            logger.warning("A Error occurred when clicking button", e)
         }
     }
 
