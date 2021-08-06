@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2021 StarWishsama.
  *
- * Class created by StarWishsama on 2021-8-5
+ * Class created by StarWishsama on 2021-8-6
  *
  * 此源代码的使用受 GNU General Public License v3.0 许可证约束, 欲阅读此许可证, 可在以下链接查看.
  * Use of this source code is governed by the GNU GPLv3 license which can be found through the following link.
@@ -18,20 +18,21 @@ import io.github.starwishsama.twitchwatcher.runner.DetectorStatus
 import io.github.starwishsama.twitchwatcher.runner.TwitchLiveWatcher
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
-import org.openqa.selenium.By
-import org.openqa.selenium.Cookie
-import org.openqa.selenium.WebDriver
+import org.openqa.selenium.*
+import org.openqa.selenium.NoSuchElementException
 import org.openqa.selenium.interactions.Actions
+import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalUnit
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.math.log
 import kotlin.random.Random
+
 
 /**
  * [TwitchUtil]
@@ -41,15 +42,14 @@ import kotlin.random.Random
 object TwitchUtil {
 
     // A series of element name in Twitch Streaming page.
-    private const val cookiePolicyQuery = "button[data-a-target=\"consent-banner-accept\"]"
-    private const val matureContentQuery = "button[data-a-target=\"player-overlay-mature-accept\"]"
-    private const val sidebarQuery = "*[data-test-selector=\"user-menu__toggle\"]"
-    private const val userStatusQuery = "span[data-a-target=\"presence-text\"]"
-    private const val channelsQuery = "a[data-test-selector*=\"ChannelLink\"]"
-    private const val streamPauseQuery = "button[data-a-target=\"player-play-pause-button\"]"
-    private const val streamSettingsQuery = "[data-a-target=\"player-settings-button\"]"
-    private const val streamQualitySettingQuery = "[data-a-target=\"player-settings-menu-item-quality\"]"
-    private const val streamQualityQuery = "input[data-a-target=\"tw-radio\"]"
+    private const val cookiePolicyQuery = """button[data-a-target="consent-banner-accept"]"""
+    private const val matureContentQuery = """button[data-a-target="player-overlay-mature-accept"]"""
+    private const val sidebarQuery = """*[data-test-selector="user-menu__toggle"]"""
+    private const val userStatusQuery = """span[data-a-target="presence-text"]"""
+    private const val channelsQuery = """a[data-test-selector*="ChannelLink"]"""
+    private const val streamPauseQuery = """button[data-a-target="player-play-pause-button"]"""
+    private const val streamSettingsQuery = """[data-a-target="player-settings-button"]"""
+    private const val streamQualitySettingQuery = """[data-a-target="player-settings-menu-item-quality"]"""
 
     /**
      * Parse config cookie to cookie for request
@@ -171,41 +171,41 @@ object TwitchUtil {
 
         val watchDuration = Random.nextLong(config.minWatchTime, config.maxWatchTime)
 
+        HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(sidebarQuery)))
+
+        HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(cookiePolicyQuery)))
+
         // Click on cookie policy accept button
         clickButton(driver, cookiePolicyQuery)
         // Click on cookie mature content accept button
         clickButton(driver, matureContentQuery)
 
-        if (watcher.status == DetectorStatus.RUNNING) {
-            logger.info("Setting the resolution to lowest...")
+        if (watcher.status == DetectorStatus.READY) {
+            /**logger.info("Setting the resolution to lowest...")
 
             clickButton(driver, streamPauseQuery)
-            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamPauseQuery)))
-
             clickButton(driver, streamSettingsQuery)
-            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamSettingsQuery)))
-
-            clickButton(driver, streamQualityQuery)
-            HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(streamQualityQuery)))
 
             val resolutions = doSelector(driver, streamQualitySettingQuery)
             val lowestResolution = resolutions.last().attributes()["id"]
 
-            clickButton(driver, lowestResolution, By.tagName(lowestResolution))
+            println(resolutions.last().attributes())
+            println(lowestResolution)
 
-            HtmlUtil.getWebElement(driver, By.cssSelector(streamPauseQuery)).sendKeys("m")
+            clickButton(driver, lowestResolution, By.tagName(lowestResolution))*/
 
-            watcher.status = DetectorStatus.READY
+            HtmlUtil.getWebElement(driver, By.cssSelector(streamPauseQuery))?.sendKeys("m")
+
+            watcher.status = DetectorStatus.RUNNING
         }
 
         clickButton(driver, sidebarQuery)
-        HtmlUtil.waitForElement(driver, HtmlUtil.getWebElement(driver, By.cssSelector(sidebarQuery)))
         val status = doSelector(driver, userStatusQuery) //status jQuery
-        clickButton(driver, sidebarQuery); //Close sidebar
+        clickButton(driver, sidebarQuery) //Close sidebar
 
         logger.info("💡 Account status: ${if (status.isNotEmpty() && status[0] != null) status[0].children()[0].data() else "Unknown"}")
         logger.info("🕒 Time: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-        logger.info("💤 Watching stream for " + watchDuration / 60000 + "minute(s)");
+        logger.info("💤 Watching stream for " + watchDuration / 60000 + " minute(s)")
 
         val wait = WebDriverWait(driver, Duration.ofSeconds(5), Duration.ofMinutes(watchDuration))
         wait.withTimeout(Duration.ofMinutes(watchDuration))
@@ -219,21 +219,20 @@ object TwitchUtil {
      * @param by search Element way
      */
     fun clickButton(driver: WebDriver, query: String, by: By = By.cssSelector(query)) {
-        val result = driver.findElements(by)
-
-        if (result.isEmpty()) {
-            return
-        }
-
         try {
-            val first = result[0]
+            val result = driver.findElement(by)
 
-            if (first.tagName == "tag" && first.accessibleName == "button") {
-                first.click()
+            if (result.tagName == "button") {
+                WebDriverWait(driver, Duration.ofSeconds(5)).until(ExpectedConditions.elementToBeClickable(by)).click()
+                logger.verbose("Clicked button $query")
                 TimeUnit.MILLISECONDS.sleep(200)
             }
         } catch (e: Exception) {
-            logger.warning("A Error occurred when clicking button", e)
+            if (e is NoSuchElementException) {
+                logger.warning("Unable to find element, query: $query")
+            } else {
+                logger.warning("A Error occurred when clicking button", e)
+            }
         }
     }
 
